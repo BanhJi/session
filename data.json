@@ -1,0 +1,18 @@
+{
+    "pathParameters":{
+        "institute_id": "inst-22948277"
+    },
+    "queryStringParameters":{
+        "totalPage": 1333,
+        "limit": 120,
+        "filter": "{\"logic\":\"and\",\"filters\":[{\"field\":\"sortIndex\",\"operation\":\"between\",\"start\":1233,\"end\":1333}]}",
+        "sort": {
+            "field": "sortIndex",
+            "dir": "desc"
+        },
+        "take": 100,
+        "skip": 0,
+        "page": 6,
+        "pageSize": 100
+    }
+}

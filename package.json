@@ -1,0 +1,28 @@
+{
+  "name": "entity-members",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BanhJi/serverless-starter.git"
+  },
+  "author": "Sokdararith Prak",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BanhJi/serverless-starter/issues"
+  },
+  "homepage": "https://github.com/BanhJi/serverless-starter#readme",
+  "dependencies": {
+    "aws-sdk": "^2.610.0",
+    "luhn-js": "^1.1.2",
+    "serverless-domain-manager": "^5.1.0",
+    "uuid": "^3.4.0"
+  },
+  "devDependencies": {
+    "standard": "^14.3.1"
+  }
+}

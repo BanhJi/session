@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Product",
+    "isSystem": 1
+  },
+  {
+    "name": "Service",
+    "isSystem": 1
+  },
+  {
+    "name": "Non Inventory",
+    "isSystem": 1
+  },
+  {
+    "name": "Digital Product",
+    "isSystem": 1
+  },
+  {
+    "name": "Transaction Items",
+    "isSystem": 1
+  },
+  {
+    "name": "Discount Items",
+    "isSystem": 1
+  },
+  {
+    "name": "Sale Unit Items",
+    "isSystem": 1
+  },
+  {
+    "name": "Revenue Sharing Item",
+    "isSystem": 1
+  },
+  {
+    "name": "Fixed Assets",
+    "isSystem": 1
+  }
+]
