@@ -19,7 +19,18 @@
     <select />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0dae3c0d-eb54-4054-b816-5f4eaacdeeae" name="Default Changelist" comment="" />
+    <list default="true" id="0dae3c0d-eb54-4054-b816-5f4eaacdeeae" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.serverless/cloudformation-template-update-stack.json" beforeDir="false" afterPath="$PROJECT_DIR$/.serverless/cloudformation-template-update-stack.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.serverless/serverless-state.json" beforeDir="false" afterPath="$PROJECT_DIR$/.serverless/serverless-state.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.serverless/sessionCreate.zip" beforeDir="false" afterPath="$PROJECT_DIR$/.serverless/sessionCreate.zip" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.serverless/sessionGet.zip" beforeDir="false" afterPath="$PROJECT_DIR$/.serverless/sessionGet.zip" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.serverless/sessionGets.zip" beforeDir="false" afterPath="$PROJECT_DIR$/.serverless/sessionGets.zip" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api/lastNumber.js" beforeDir="false" afterPath="$PROJECT_DIR$/api/lastNumber.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api/session/add.js" beforeDir="false" afterPath="$PROJECT_DIR$/api/session/add.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api/session/get.js" beforeDir="false" afterPath="$PROJECT_DIR$/api/session/get.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/serverless.yml" beforeDir="false" afterPath="$PROJECT_DIR$/serverless.yml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -270,7 +281,18 @@
       <workItem from="1637649629240" duration="597000" />
       <workItem from="1637658294761" duration="2134000" />
       <workItem from="1640003764108" duration="871000" />
-      <workItem from="1641978713068" duration="121000" />
+      <workItem from="1641978713068" duration="544000" />
+      <workItem from="1642045131826" duration="7595000" />
+      <workItem from="1642153481434" duration="16000" />
+      <workItem from="1642154525045" duration="329000" />
+      <workItem from="1642241315522" duration="4281000" />
+      <workItem from="1642249284782" duration="343000" />
+      <workItem from="1642301539417" duration="553000" />
+      <workItem from="1642393697244" duration="3625000" />
+      <workItem from="1642476869728" duration="3464000" />
+      <workItem from="1642563601912" duration="6279000" />
+      <workItem from="1642994055804" duration="596000" />
+      <workItem from="1643079831875" duration="6409000" />
     </task>
     <servers />
   </component>

@@ -5,16 +5,16 @@ const code = require('../../config/code.js')
 const message = require('../../config/message.js')
 const json = require('../../config/response.js')
 
-const dynamoDb = new AWS.DynamoDB.DocumentClient()
+const dynamoDb = new AWS.DynamoDB.DocumentClient({region:'ap-southeast-1'})
 
 module.exports.gets = async (event, context) => {
   const table = process.env.item_table
   const instituteId = event.pathParameters.institute_id
-  const sk = instituteId + '-fin-loan'
+  const sk = instituteId + '-ses'
   const params = {
     ExpressionAttributeValues: {
       ':sk': sk,
-      ':pk': 'fin-loan-'
+      ':pk': 'ses-'
     },
     IndexName: 'GSI1',
     KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
@@ -26,38 +26,17 @@ module.exports.gets = async (event, context) => {
     for (const data of d.Items) {
       results.push({
         id: data.pk,
-        uuid: data.pk,
-        issuedDate: data.issuedDate,
-        financialInstitutions: data.financialInstitutions,
-        amount: data.amount,
-        name: data.name,
-        typeOfLoan: data.typeOfLoan,
-        currency: data.currency,
-        description: data.description,
-        status: data.status,
-        outStandingBalance: data.outStandingBalance,
-        availableCredit: data.availableCredit,
-        approvedAmount: data.approvedAmount,
-        interestRate: data.interestRate,
-        saveOption: data.saveOption,
-        loanAccount: data.loanAccount,
-        interestAccount: data.interestAccount,
-        maturityDate: data.maturityDate,
-        approveDate: data.approveDate,
-        firstPaymentDate: data.firstPaymentDate,
+        startDate: data.startDate,
+        endDate: data.endDate ? data.endDate : '',
+        user: data.user,
         number: data.number,
-        approveNumber: data.approveNumber,
-        duration: data.duration,
-        monthlyRepayment: data.monthlyRepayment,
-        paymentTerm: data.paymentTerm,
-        paymentMethod: data.paymentMethod,
-        totalInterest: data.totalInterest,
-        totalPayment: data.totalPayment,
-        schedules: data.schedules,
+        openBalance: data.openBalance,
+        lastNumber: data.lastNumber,
+        status: data.status,
+        totalReceipt: data.totalReceipt,
+        countNotes: data.countNotes ? data.countNotes : [],
         sortIndex: data.sortIndex,
-        exchangeRate: data.exchangeRate,
-        segment: data.segment ? data.segment : {},
-        location: data.location ? data.location : {}
+        adjustmentAccount: data.adjustmentAccount ? data.adjustmentAccount : {}
       })
     }
     results.sort(function (a, b) {
@@ -85,7 +64,7 @@ module.exports.gets = async (event, context) => {
 module.exports.get = async (event, context) => {
   const table = process.env.item_table
   const instituteId = event.pathParameters.institute_id
-  const sk = instituteId + '-fin-loan'
+  const sk = instituteId + '-ses'
   const params = {
     ExpressionAttributeValues: {
       ':sk': sk,
@@ -100,35 +79,17 @@ module.exports.get = async (event, context) => {
     const results = d.Items.map(data => {
       return {
         id: data.pk,
-        uuid: data.pk,
-        issuedDate: data.issuedDate,
-        financialInstitutions: data.financialInstitutions,
-        amount: data.amount,
-        name: data.name,
-        typeOfLoan: data.typeOfLoan,
-        currency: data.currency,
-        description: data.description,
-        status: data.status,
-        outStandingBalance: data.outStandingBalance,
-        availableCredit: data.availableCredit,
-        approvedAmount: data.approvedAmount,
-        saveOption: data.saveOption,
-        sortIndex: data.sortIndex,
-        loanAccount: data.loanAccount ? data.loanAccount : {},
-        interestAccount: data.interestAccount ? data.interestAccount : {},
-        interestRate: data.interestRate,
-        maturityDate: data.maturityDate,
-        approveDate: data.approveDate,
-        firstPaymentDate: data.firstPaymentDate,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        user: data.user,
         number: data.number,
-        approveNumber: data.approveNumber,
-        duration: data.duration,
-        monthlyRepayment: data.monthlyRepayment,
-        paymentTerm: data.paymentTerm,
-        paymentMethod: data.paymentMethod,
-        schedules: data.schedules ? data.schedules : [],
-        segment: data.segment ? data.segment : {},
-        location: data.location ? data.location : {}
+        openBalance: data.openBalance,
+        lastNumber: data.lastNumber,
+        status: data.status,
+        totalReceipt: data.totalReceipt,
+        countNotes: data.countNotes ? data.countNotes : [],
+        sortIndex: data.sortIndex,
+        adjustmentAccount: data.adjustmentAccount ? data.adjustmentAccount : {}
       }
     })
     return {
@@ -150,37 +111,39 @@ module.exports.get = async (event, context) => {
     }
   }
 }
-module.exports.loanschedule = async (event, context) => {
+module.exports.byuser = async (event, context) => {
   const table = process.env.item_table
+  const instituteId = event.pathParameters.institute_id
+  const sk = instituteId + '-ses'
   const params = {
     ExpressionAttributeValues: {
-      ':sk': event.pathParameters.institute_id,
-      ':pk': 'fin-loansche-',
-      ':loanId': event.pathParameters.id
+      ':sk': sk,
+      ':gsisk': event.pathParameters.user_id
     },
-    ExpressionAttributeNames: {
-      '#loanId': 'loanId'
-    },
-    IndexName: 'GSI1',
-    KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
-    FilterExpression: '#loanId = :loanId',
+    IndexName: 'GSI1SK',
+    KeyConditionExpression: 'sk = :sk and begins_with(gsisk, :gsisk)',
     TableName: table
   }
   try {
-    const data = await dynamoDb.query(params).promise()
-    const results = data.Items.map(item => {
+    const d = await dynamoDb.query(params).promise()
+    const results = d.Items.map(data => {
       return {
-        id: item.pk,
-        data: item.data,
-        loan: item.loan,
-        receiptDate: item.receiptDate,
-        loanId: item.loanId,
-        status: item.status,
-        receiptId: item.receiptId
+        id: data.pk,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        user: data.user,
+        number: data.number,
+        openBalance: data.openBalance,
+        lastNumber: data.lastNumber,
+        status: data.status,
+        totalReceipt: data.totalReceipt,
+        countNotes: data.countNotes ? data.countNotes : [],
+        sortIndex: data.sortIndex,
+        adjustmentAccount: data.adjustmentAccount ? data.adjustmentAccount : {}
       }
     })
     results.sort(function (a, b) {
-      return new Date(a.receiptDate) - new Date(b.receiptDate)
+      return parseInt(b.sortIndex) - parseInt(a.sortIndex)
     })
     return {
       statusCode: code.httpStatus.OK,
@@ -201,40 +164,194 @@ module.exports.loanschedule = async (event, context) => {
     }
   }
 }
-module.exports.centersearchtxn = async (event) => {
+module.exports.bydate = async (event) => {
+  const data = JSON.parse(event.body)
   const table = process.env.item_table
-  // const instituteId = event.pathParameters.institute_id
-  const bdata = JSON.parse(event.body)
-  // saving center
+  const instituteId = event.pathParameters.institute_id
+  const sk = instituteId + '-ses'
   const params = {
     ExpressionAttributeValues: {
-      ':pk': 'fin-txn-',
-      ':sk': bdata.loanId,
-      ':startDate': bdata.startDate,
-      ':endDate': bdata.endDate
+      ':sk': sk,
+      ':pk': event.pathParameters.user_id,
+      ':startDate': data.startDate,
+      ':endDate': data.endDate
     },
     ExpressionAttributeNames: {
-      '#issuedDate': 'issuedDate'
+      '#startDate': 'startDate',
+      '#endDate': 'endDate'
     },
     IndexName: 'GSI1',
     KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
-    FilterExpression: '#issuedDate >= :startDate and #issuedDate <= :endDate',
+    FilterExpression: '#startDate >= :startDate and #endDate <= :endDate',
     TableName: table
   }
   try {
-    const data = await dynamoDb.query(params).promise()
-    const results = []
-    for (const item of data.Items) {
-      results.push({
-        issuedDate: item.issuedDate ? item.issuedDate : '',
-        number: item.number ? item.number : '',
-        id: item.pk,
-        type: item.type ? item.type : '',
-        amount: item.amount ? item.amount : 0
-      })
-    }
+    const d = await dynamoDb.query(params).promise()
+    const results = d.Items.map(data => {
+      return {
+        id: data.pk,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        user: data.user,
+        number: data.number,
+        openBalance: data.openBalance,
+        lastNumber: data.lastNumber,
+        status: data.status,
+        totalReceipt: data.totalReceipt,
+        countNotes: data.countNotes ? data.countNotes : [],
+        sortIndex: data.sortIndex,
+        adjustmentAccount: data.adjustmentAccount ? data.adjustmentAccount : {}
+      }
+    })
     results.sort(function (a, b) {
-      return new Date(b.issuedDate) - new Date(a.issuedDate)
+      return parseInt(b.sortIndex) - parseInt(a.sortIndex)
+    })
+    return {
+      statusCode: code.httpStatus.OK,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.OK, results, message.msg.FetchSuccessed, '', 1)
+    }
+  } catch (error) {
+    return {
+      statusCode: code.httpStatus.Created,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.BadRequest, [], message.msg.FetchFailed, error, 0)
+    }
+  }
+}
+module.exports.checksession = async (event, context) => {
+  const table = process.env.item_table
+  const instituteId = event.pathParameters.institute_id
+  const data = JSON.parse(event.body)
+  const params = {
+    ExpressionAttributeValues: {
+      ':sk': instituteId + '-ses',
+      ':gsisk': data.user_name + '#' + instituteId + '#1'
+    },
+    IndexName: 'GSI1SK',
+    KeyConditionExpression: 'sk = :sk and begins_with(gsisk, :gsisk)',
+    ScanIndexForward: false,
+    TableName: table
+  }
+  try {
+    const d = await dynamoDb.query(params).promise()
+    const results = d.Items.map(data => {
+      return {
+        id: data.pk,
+        pk: data.pk,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        user: data.user,
+        number: data.number,
+        openBalance: data.openBalance,
+        lastNumber: data.lastNumber,
+        status: data.status,
+        totalReceipt: data.totalReceipt,
+        countNotes: data.countNotes ? data.countNotes : [],
+        sortIndex: data.sortIndex,
+        adjustmentAccount: data.adjustmentAccount ? data.adjustmentAccount : {}
+      }
+    })
+    return {
+      statusCode: code.httpStatus.OK,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.OK, results, message.msg.FetchSuccessed, '', 1, {})
+    }
+  } catch (error) {
+    return {
+      statusCode: code.httpStatus.BadRequest,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.BadRequest, [], message.msg.FetchFailed, error, 0, {})
+    }
+  }
+}
+module.exports.cashiersetting = async (event, context) => {
+  const table = process.env.item_table
+  const instituteId = event.pathParameters.institute_id
+  const sk = instituteId
+  const params = {
+    ExpressionAttributeValues: {
+      ':sk': sk,
+      ':pk': 'cashset-'
+    },
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
+    TableName: table
+  }
+  try {
+    const d = await dynamoDb.query(params).promise()
+    const results = d.Items.map(data => {
+      return {
+        id: data.pk,
+        lastRefNum: data.lastRefNum,
+        searchOption: data.searchOption,
+        msgJournal: data.msgJournal,
+        paymentOption: data.paymentOption,
+        user: data.user ? data.user : {},
+        segment: data.segment
+      }
+    })
+    return {
+      statusCode: code.httpStatus.OK,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.OK, results, message.msg.FetchSuccessed, '', 1)
+    }
+  } catch (error) {
+    return {
+      statusCode: code.httpStatus.Created,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.BadRequest, [], message.msg.FetchFailed, error, 0)
+    }
+  }
+}
+module.exports.txnsession = async (event, context) => {
+  const table = process.env.item_table
+  const params = {
+    ExpressionAttributeValues: {
+      ':sk': event.pathParameters.id,
+      ':pk': 'txnses-'
+    },
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
+    TableName: table
+  }
+  try {
+    const d = await dynamoDb.query(params).promise()
+    const results = d.Items.map(data => {
+      return {
+        id: data.pk,
+        pk: data.pk,
+        instituteId: data.instituteId,
+        receiptId: data.receiptId,
+        invoiceId: data.invoiceId,
+        amountTobePaid: data.amountTobePaid,
+        paidAmount: data.paidAmount,
+        user: data.user,
+        issuedDate: data.issuedDate,
+        printObj: data.printObj,
+        gsisk: data.gsisk
+      }
+    })
+    results.sort(function (a, b) {
+      return parseInt(b.issuedDate) - parseInt(a.issuedDate)
     })
     return {
       statusCode: code.httpStatus.OK,

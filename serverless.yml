@@ -33,7 +33,7 @@ custom:
   domains:
     prod: apis.banhji.com
     staging: staging-apis.banhji.com
-    dev: dev-apis.banhji.com
+    dev: sandbox.banhji.com
   customDomain:
     basePath: ${self:service}
     domainName: ${self:custom.domains.${self:custom.stage}}
@@ -92,3 +92,159 @@ functions:
             parameters:
               paths:
                 institute_id: true
+  lastNumber:
+    handler: api/lastNumber.index
+    package:
+      patterns:
+        - config/**
+        - api/lastNumber.js
+      individually: true
+    events:
+      - http:
+          path: lastnumber/institute/{institute_id}/lastnumber
+          method: post
+          cors: true
+  getByUser:
+    handler: api/session/get.byuser
+    package:
+      patterns:
+        - config/**
+        - api/session/get.js
+      individually: true
+    events:
+      - http:
+          path: session/institute/{institute_id}/user/{user_id}
+          method: get
+          cors: true
+          request:
+            parameters:
+              paths:
+                institute_id: true
+                user_id: true
+  getByDate:
+    handler: api/session/get.bydate
+    package:
+      patterns:
+        - config/**
+        - api/session/get.js
+      individually: true
+    events:
+      - http:
+          path: session/institute/{institute_id}/bydate
+          method: post
+          cors: true
+  checkSession:
+    handler: api/session/get.checksession
+    package:
+      patterns:
+        - config/**
+        - api/session/get.js
+      individually: true
+    events:
+      - http:
+          path: session/institute/{institute_id}/check
+          method: post
+          cors: true
+  txnSessionCreate:
+    handler: api/session/add.txnsession
+    package:
+      patterns:
+        - config/**
+        - node_modules/uuid/**
+        - api/functions/functions.js
+        - api/session/add.js
+      individually: true
+    events:
+      - http:
+          path: session/institute/{institute_id}/txn
+          method: post
+          cors: true
+  txnSessionGet:
+    handler: api/session/get.txnsession
+    package:
+      patterns:
+        - config/**
+        - api/session/get.js
+      individually: true
+    events:
+      - http:
+          path: session/institute/{institute_id}/txn/{id}
+          method: get
+          cors: true
+          request:
+            parameters:
+              paths:
+                institute_id: true
+                id: true
+  cashierSettingCreate:
+    handler: api/session/add.cashiersetting
+    package:
+      patterns:
+        - config/**
+        - node_modules/uuid/**
+        - api/functions/functions.js
+        - api/session/add.js
+      individually: true
+    events:
+      - http:
+          path: cashier/institute/{institute_id}/setting
+          method: post
+          cors: true
+  cashierSettingGet:
+    handler: api/session/get.cashiersetting
+    package:
+      patterns:
+        - config/**
+        - api/session/get.js
+      individually: true
+    events:
+      - http:
+          path: cashier/institute/{institute_id}/setting
+          method: get
+          cors: true
+          request:
+            parameters:
+              paths:
+                institute_id: true
+  collectionReport:
+    handler: api/session/add.collection
+    package:
+      patterns:
+        - config/**
+        - node_modules/uuid/**
+        - api/functions/functions.js
+        - api/session/add.js
+      individually: true
+    events:
+      - http:
+          path: session/institute/{institute_id}/collection
+          method: post
+          cors: true
+  reconcileCreate:
+    handler: api/session/add.reconcile
+    package:
+      patterns:
+        - config/**
+        - node_modules/uuid/**
+        - api/functions/functions.js
+        - api/session/add.js
+      individually: true
+    events:
+      - http:
+          path: reconcile/institute/{institute_id}/create
+          method: post
+          cors: true
+  sessionTxnReport:
+    handler: api/session/add.txnreport
+    package:
+      patterns:
+        - config/**
+        - node_modules/uuid/**
+        - api/functions/functions.js
+        - api/session/add.js
+      individually: true
+    events:
+      - http:
+          path: session/institute/{institute_id}/txnreport
+          method: post
+          cors: true

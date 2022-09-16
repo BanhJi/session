@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk')
-const dynamoDb = new AWS.DynamoDB.DocumentClient()
+const dynamoDb = new AWS.DynamoDB.DocumentClient({region:'ap-southeast-1'})
 const uuid = require('uuid')
 
 const addBalanceDaily = async (amt, pkhead, instituteId, issuedDate, reportName, typeId, att) => {

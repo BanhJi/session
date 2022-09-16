@@ -5,7 +5,7 @@ const code = require('../config/code.js')
 const message = require('../config/message.js')
 const json = require('../config/response.js')
 
-const dynamoDb = new AWS.DynamoDB.DocumentClient()
+const dynamoDb = new AWS.DynamoDB.DocumentClient({region:'ap-southeast-1'})
 
 module.exports.centersearchtxn = async (event) => {
   const table = process.env.item_table

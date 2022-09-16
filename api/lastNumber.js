@@ -5,38 +5,27 @@ const code = require('../config/code.js')
 const message = require('../config/message.js')
 const json = require('../config/response.js')
 
-const dynamoDb = new AWS.DynamoDB.DocumentClient()
+const dynamoDb = new AWS.DynamoDB.DocumentClient({region:'ap-southeast-1'})
 
 module.exports.index = async (event, context) => {
   const table = process.env.item_table
   const instituteId = event.pathParameters.institute_id
-  const bdata = JSON.parse(event.body)
+  const d = JSON.parse(event.body)
   let params = {
     ExpressionAttributeValues: {
-      ':sk': instituteId,
-      ':pk': 'fin-receipt-'
+      ':sk': instituteId + '-ses',
+      ':pk': 'ses-'
     },
     IndexName: 'GSI1',
     KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
     ScanIndexForward: false,
     TableName: table
   }
-  if (bdata.type === 'CloseLoan') {
+  if (d.module === 'reconcile') {
     params = {
       ExpressionAttributeValues: {
         ':sk': instituteId,
-        ':pk': 'fin-closeloan-'
-      },
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
-      ScanIndexForward: false,
-      TableName: table
-    }
-  } else if (bdata.type === 'RecordPayment') {
-    params = {
-      ExpressionAttributeValues: {
-        ':sk': instituteId,
-        ':pk': 'fin-loanpay-'
+        ':pk': 'recon-'
       },
       IndexName: 'GSI1',
       KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',

@@ -5,9 +5,8 @@ const code = require('../../config/code.js')
 const message = require('../../config/message.js')
 const json = require('../../config/response.js')
 const uuid = require('uuid')
-// const myFunc = require('../functions/functions')
 
-const dynamoDb = new AWS.DynamoDB.DocumentClient()
+const dynamoDb = new AWS.DynamoDB.DocumentClient({region:'ap-southeast-1'})
 
 module.exports.index = async (event) => {
   try {
@@ -15,53 +14,28 @@ module.exports.index = async (event) => {
     const data = JSON.parse(event.body)
     const table = process.env.item_table
     const instituteId = event.pathParameters.institute_id
-    const sk = instituteId + '-fin-loan'
+    const sk = instituteId + '-ses'
     let head
     const lines = []
     if (data.id === undefined || data.id === '') {
-      head = 'fin-loan-' + uuid.v1()
+      head = 'ses-' + uuid.v1()
     } else {
       head = data.id
     }
     const pk = head
-    let outStandingBalance = 0
-    if (data.status === 'approved') {
-      outStandingBalance = data.approvedAmount
-    }
-    const Loan = {
+    const Session = {
       sk: sk,
       pk: pk,
-      id: pk,
-      issuedDate: data.issuedDate,
-      financialInstitutions: data.financialInstitutions,
-      amount: data.amount,
-      name: data.name,
-      typeOfLoan: data.typeOfLoan,
-      currency: data.currency,
-      description: data.description,
-      status: data.status,
-      outStandingBalance: parseFloat(outStandingBalance),
-      availableCredit: data.availableCredit,
-      approvedAmount: data.approvedAmount,
-      interestRate: data.interestRate,
-      saveOption: data.saveOption,
-      loanAccount: data.loanAccount,
-      interestAccount: data.interestAccount,
-      maturityDate: data.maturityDate,
-      approveDate: data.approveDate,
-      firstPaymentDate: data.firstPaymentDate,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      user: data.user,
+      sortIndex: data.sortIndex,
+      lastNumber: data.lastNumber,
       number: data.number,
-      approveNumber: data.approveNumber,
-      duration: data.duration,
-      monthlyRepayment: data.monthlyRepayment,
-      paymentTerm: data.paymentTerm,
-      paymentMethod: data.paymentMethod,
-      totalInterest: data.totalInterest,
-      totalPayment: data.totalPayment,
-      schedules: data.schedules,
-      exchangeRate: data.exchangeRate,
-      segment: data.segment,
-      location: data.location,
+      openBalance: data.openBalance,
+      totalReceipt: data.totalReceipt,
+      adjustmentAccount: data.adjustmentAccount,
+      actualAmount: data.actualAmount,
       createdAt: timestamp,
       updatedAt: timestamp
     }
@@ -69,7 +43,7 @@ module.exports.index = async (event) => {
     const cpara = {
       ExpressionAttributeValues: {
         ':sk': event.pathParameters.institute_id,
-        ':pk': 'fin-loancount-'
+        ':pk': 'sescount-'
       },
       Limit: 1,
       IndexName: 'GSI1',
@@ -108,55 +82,187 @@ module.exports.index = async (event) => {
           PutRequest: {
             Item: {
               sk: instituteId,
-              pk: 'fin-loancount-' + uuid.v1(),
+              pk: 'sescount-' + uuid.v1(),
               totalCount: startCount
             }
           }
         })
       }
     }
-    // end count
     lines.push({
       PutRequest: {
         Item: {
           sk: sk,
           pk: pk,
-          issuedDate: data.issuedDate,
-          financialInstitutions: data.financialInstitutions,
-          amount: data.amount,
-          name: data.name,
-          typeOfLoan: data.typeOfLoan,
-          currency: data.currency,
-          description: data.description,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          user: data.user,
+          sortIndex: startCount,
+          lastNumber: data.lastNumber,
+          gsisk: data.endDate === '' ? data.user.email + '#' + event.pathParameters.institute_id + '#1' : data.user.email + '#' + event.pathParameters.institute_id + '#2',
+          number: data.number,
+          openBalance: data.openBalance,
           status: data.status,
-          outStandingBalance: parseFloat(outStandingBalance),
-          availableCredit: data.availableCredit,
-          approvedAmount: data.approvedAmount,
-          interestRate: data.interestRate,
-          saveOption: data.saveOption,
-          sortIndex: data.isEdit === false ? startCount : data.sortIndex,
-          loanAccount: data.loanAccount,
-          interestAccount: data.interestAccount,
-          maturityDate: data.maturityDate,
-          approveDate: data.approveDate,
-          firstPaymentDate: data.firstPaymentDate,
-          number: data.number,
-          approveNumber: data.approveNumber,
-          duration: data.duration,
-          monthlyRepayment: data.monthlyRepayment,
-          paymentTerm: data.paymentTerm,
-          paymentMethod: data.paymentMethod,
-          totalInterest: data.totalInterest,
-          totalPayment: data.totalPayment,
-          schedules: data.schedules,
-          exchangeRate: data.exchangeRate,
+          totalReceipt: data.totalReceipt,
+          countNotes: data.countNotes,
+          adjustmentAccount: data.adjustmentAccount,
+          actualAmount: data.actualAmount,
+          createdAt: timestamp,
+          updatedAt: timestamp
+        }
+      }
+    })
+    // end count
+    for (let i = 0; i < lines.length; i += 25) {
+      const upperLimit = Math.min(i + 25, lines.length)
+      const newItems = lines.slice(i, upperLimit)
+      try {
+        await dynamoDb
+          .batchWrite({
+            RequestItems: {
+              [table]: newItems
+            }
+          })
+          .promise()
+      } catch (e) {
+        console.log('arr ', JSON.stringify(e), JSON.stringify(newItems))
+        console.error('There was an error while processing the request')
+        break
+      }
+    }
+    // response back
+    return {
+      statusCode: code.httpStatus.Created,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.Created, Session, message.msg.ItemCreatedSuccessed, '', 1)
+    }
+  } catch (e) {
+    console.log('error ', e)
+  }
+}
+module.exports.txnsession = async (event) => {
+  try {
+    const timestamp = new Date().toJSON()
+    const data = JSON.parse(event.body)
+    const table = process.env.item_table
+    let head
+    const lines = []
+    if (data.id === undefined || data.id === '') {
+      head = 'txnses-' + uuid.v1()
+    } else {
+      head = data.id
+    }
+    const pk = head
+    const Session = {
+      sk: data.sessionId,
+      pk: pk,
+      receiptId: data.receiptId,
+      invoiceId: data.invoiceId,
+      amountTobePaid: data.amountTobePaid,
+      paidAmount: data.paidAmount,
+      user: data.user,
+      issuedDate: data.issuedDate,
+      printObj: data.printObj,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    }
+    lines.push({
+      PutRequest: {
+        Item: {
+          sk: data.sessionId,
+          pk: pk,
+          instituteId: event.pathParameters.institute_id,
+          receiptId: data.receiptId,
+          invoiceId: data.invoiceId,
+          amountTobePaid: data.amountTobePaid,
+          paidAmount: data.paidAmount,
+          user: data.user,
+          issuedDate: data.issuedDate,
+          printObj: data.printObj,
+          gsisk: data.user.username + '#' + data.issuedDate,
+          createdAt: timestamp,
+          updatedAt: timestamp
+        }
+      }
+    })
+    // end count
+    for (let i = 0; i < lines.length; i += 25) {
+      const upperLimit = Math.min(i + 25, lines.length)
+      const newItems = lines.slice(i, upperLimit)
+      try {
+        await dynamoDb
+          .batchWrite({
+            RequestItems: {
+              [table]: newItems
+            }
+          })
+          .promise()
+      } catch (e) {
+        console.log('arr ', JSON.stringify(e), JSON.stringify(newItems))
+        console.error('There was an error while processing the request')
+        break
+      }
+    }
+    // response back
+    return {
+      statusCode: code.httpStatus.Created,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.Created, Session, message.msg.ItemCreatedSuccessed, '', 1)
+    }
+  } catch (e) {
+    console.log('error ', e)
+  }
+}
+module.exports.cashiersetting = async (event) => {
+  try {
+    const timestamp = new Date().toJSON()
+    const data = JSON.parse(event.body)
+    const table = process.env.item_table
+    const instituteId = event.pathParameters.institute_id
+    const sk = instituteId
+    let head
+    const lines = []
+    if (data.id === undefined || data.id === '') {
+      head = 'cashset-' + uuid.v1()
+    } else {
+      head = data.id
+    }
+    const pk = head
+    const Session = {
+      sk: sk,
+      pk: pk,
+      lastRefNum: data.lastRefNum,
+      searchOption: data.searchOption,
+      msgJournal: data.msgJournal,
+      paymentOption: data.paymentOption,
+      user: data.user,
+      segment: data.segment,
+      createdAt: timestamp,
+      updatedAt: timestamp
+    }
+    lines.push({
+      PutRequest: {
+        Item: {
+          sk: sk,
+          pk: pk,
+          lastRefNum: data.lastRefNum,
+          searchOption: data.searchOption,
+          msgJournal: data.msgJournal,
+          paymentOption: data.paymentOption,
+          user: data.user,
           segment: data.segment,
-          location: data.location,
           createdAt: timestamp,
           updatedAt: timestamp
         }
       }
     })
+    // end count
     for (let i = 0; i < lines.length; i += 25) {
       const upperLimit = Math.min(i + 25, lines.length)
       const newItems = lines.slice(i, upperLimit)
@@ -181,13 +287,48 @@ module.exports.index = async (event) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*' // to allow cross origin access
       },
-      body: json.responseBody(code.httpStatus.Created, Loan, message.msg.ItemCreatedSuccessed, '', 1)
+      body: json.responseBody(code.httpStatus.Created, Session, message.msg.ItemCreatedSuccessed, '', 1)
     }
   } catch (e) {
     console.log('error ', e)
   }
 }
-module.exports.receipt = async (event) => {
+module.exports.collection = async (event) => {
+  const table = process.env.item_table
+  const instituteId = event.pathParameters.institute_id
+  const data = JSON.parse(event.body)
+  const params = {
+    ExpressionAttributeValues: {
+      ':sk': instituteId,
+      ':startDate': data.startDate,
+      ':endDate': data.endDate
+    },
+    IndexName: 'InstGSI',
+    KeyConditionExpression: 'instituteId = :sk And gsisk BETWEEN :startDate AND :endDate',
+    TableName: table
+  }
+  try {
+    const d = await dynamoDb.query(params).promise()
+    return {
+      statusCode: code.httpStatus.OK,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.OK, d.Items, message.msg.FetchSuccessed, '', 1)
+    }
+  } catch (error) {
+    return {
+      statusCode: code.httpStatus.Created,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
+      },
+      body: json.responseBody(code.httpStatus.BadRequest, [], message.msg.FetchFailed, error, 0)
+    }
+  }
+}
+module.exports.reconcile = async (event) => {
   try {
     const timestamp = new Date().toJSON()
     const data = JSON.parse(event.body)
@@ -197,27 +338,32 @@ module.exports.receipt = async (event) => {
     let head
     const lines = []
     if (data.id === undefined || data.id === '') {
-      head = 'fin-receipt-' + uuid.v1()
+      head = 'recon-' + uuid.v1()
     } else {
       head = data.id
     }
     const pk = head
-    const R = {
+    const Recon = {
       sk: sk,
       pk: pk,
-      id: pk,
-      loan: data.loan,
-      issuedDate: data.issuedDate,
-      abbr: data.abbr,
       number: data.number,
-      cashItemLine: data.cashItemLine,
-      relateCostItemLine: data.relateCostItemLine,
-      journalId: data.journalId,
-      journal: data.journal,
-      user: data.user,
       lastNumber: data.lastNumber,
-      exchangeRate: data.exchangeRate,
-      receivedAmount: data.receivedAmount,
+      issuedDate: data.issuedDate,
+      endingBalanceDate: data.endingBalanceDate,
+      actualAmount: data.actualAmount,
+      endingBalance: data.endingBalance,
+      varianceAmount: data.varianceAmount,
+      account: data.account,
+      adjustmentAccount: data.adjustmentAccount,
+      session: data.session,
+      user: data.user,
+      type: data.type,
+      reconcileEntries: data.reconcileEntries,
+      is_draft: data.is_draft,
+      created_by: data.created_by,
+      modified_by: data.modified_by,
+      journalId: data.journalId,
+      countNotes: data.countNotes,
       createdAt: timestamp,
       updatedAt: timestamp
     }
@@ -226,146 +372,57 @@ module.exports.receipt = async (event) => {
         Item: {
           sk: sk,
           pk: pk,
-          loan: data.loan,
-          issuedDate: data.issuedDate,
-          abbr: data.abbr,
           number: data.number,
-          cashItemLine: data.cashItemLine,
-          relateCostItemLine: data.relateCostItemLine,
-          journalId: data.journalId,
-          journal: data.journal,
-          user: data.user,
           lastNumber: data.lastNumber,
-          exchangeRate: data.exchangeRate,
-          receivedAmount: data.receivedAmount,
-          createdAt: timestamp,
-          updatedAt: timestamp
-        }
-      }
-    })
-    // add transaction
-    lines.push({
-      PutRequest: {
-        Item: {
-          sk: data.loan.id,
-          pk: 'fin-txn-' + uuid.v1(),
-          loan: data.loan,
           issuedDate: data.issuedDate,
-          number: data.abbrNumber,
-          amount: parseFloat(data.receivedAmount),
+          endingBalanceDate: data.endingBalanceDate,
+          actualAmount: data.actualAmount,
+          endingBalance: data.endingBalance,
+          varianceAmount: data.varianceAmount,
+          account: data.account,
+          adjustmentAccount: data.adjustmentAccount,
+          session: data.session,
           user: data.user,
-          exchangeRate: data.exchangeRate,
-          type: 'loan receipt',
+          type: data.type,
+          reconcileEntries: data.reconcileEntries,
+          is_draft: data.is_draft,
+          created_by: data.created_by,
+          modified_by: data.modified_by,
+          journalId: data.journalId,
+          gsisk: 'recon#' + data.user.email + '#' + event.pathParameters.institute_id + '#' + data.issuedDate,
+          countNotes: data.countNotes,
           createdAt: timestamp,
           updatedAt: timestamp
         }
       }
     })
-    if (Object.prototype.hasOwnProperty.call(data.loan, 'id')) {
-      lines.push({
-        PutRequest: {
-          Item: {
-            sk: data.loan.id,
-            pk: pk,
-            name: data.loan.name,
-            receiptData: R,
-            deleted: 0,
-            createdAt: timestamp,
-            updatedAt: timestamp
-          }
-        }
-      })
-      const tparams = {
+    if (data.is_draft !== 1) {
+      const mtcount = {
         TableName: table,
         Key: {
-          pk: data.loan.id,
-          sk: event.pathParameters.institute_id + '-fin-loan'
+          pk: data.session.pk,
+          sk: event.pathParameters.institute_id + '-ses'
         },
         ExpressionAttributeValues: {
-          ':status': 'active'
+          ':gsisk': data.user.email + '#' + event.pathParameters.institute_id + '#2',
+          ':countNotes': data.countNotes,
+          ':endDate': data.endingBalanceDate,
+          ':actualAmount': data.actualAmount,
+          ':status': 2
         },
         ExpressionAttributeNames: {
+          '#gsisk': 'gsisk',
+          '#countNotes': 'countNotes',
+          '#endDate': 'endDate',
+          '#actualAmount': 'actualAmount',
           '#status': 'status'
         },
-        UpdateExpression: 'set #status = :status',
+        UpdateExpression: 'set #gsisk = :gsisk, #countNotes = :countNotes, #endDate = :endDate, #actualAmount = :actualAmount, #status = :status',
         ReturnValues: 'UPDATED_NEW'
       }
-      await dynamoDb.update(tparams).promise()
-      // balance
-      const myFunc = require('../functions/functions')
-      await myFunc.addBalanceDaily(parseFloat(data.loan.outStandingBalance) * parseFloat(data.loan.exchangeRate.rate), 'fin-loan-bal-', instituteId, data.issuedDate, 'loanBalanceReport', data.loan.typeOfLoan.uuid, '')
-      for (const sche of data.loan.schedules) {
-        if (sche.date !== 'Total') {
-          lines.push({
-            PutRequest: {
-              Item: {
-                sk: instituteId,
-                pk: 'fin-loansche-' + uuid.v1(),
-                data: sche,
-                loan: data.loan,
-                financialInstitutions: data.loan.financialInstitutions,
-                receiptDate: sche.date,
-                bankId: data.loan.financialInstitutions.uuid,
-                bankName: data.loan.financialInstitutions.name,
-                loanNumber: data.loan.number,
-                loanId: data.loan.id,
-                exchangeRate: data.loan.exchangeRate,
-                status: 1,
-                receiptId: '',
-                createdAt: timestamp,
-                updatedAt: timestamp
-              }
-            }
-          })
-        }
-      }
-      // update balance
-      const bpara = {
-        ExpressionAttributeValues: {
-          ':sk': event.pathParameters.institute_id,
-          ':pk': 'fin-balance-'
-        },
-        Limit: 1,
-        IndexName: 'GSI1',
-        KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
-        TableName: table
-      }
-      const loanBal = await dynamoDb.query(bpara).promise()
-      if (loanBal.Items.length > 0) {
-        const tparams = {
-          TableName: table,
-          Key: {
-            pk: loanBal.Items[0].pk,
-            sk: instituteId
-          },
-          ExpressionAttributeValues: {
-            ':approveLoan': 1,
-            ':interestRate': parseFloat(data.loan.interestRate) * parseFloat(data.loan.exchangeRate.rate),
-            ':outstandingBalance': parseFloat(data.loan.outStandingBalance) * parseFloat(data.loan.exchangeRate.rate)
-          },
-          ExpressionAttributeNames: {
-            '#approveLoan': 'approveLoan',
-            '#interestRate': 'interestRate',
-            '#outstandingBalance': 'outstandingBalance'
-          },
-          UpdateExpression: 'set #approveLoan = #approveLoan + :approveLoan, #interestRate = #interestRate + :interestRate, #outstandingBalance = #outstandingBalance + :outstandingBalance',
-          ReturnValues: 'UPDATED_NEW'
-        }
-        await dynamoDb.update(tparams).promise()
-      } else {
-        lines.push({
-          PutRequest: {
-            Item: {
-              sk: instituteId,
-              pk: 'fin-balance-' + uuid.v1(),
-              approveLoan: 1,
-              interestRate: parseFloat(data.loan.interestRate) * parseFloat(data.loan.exchangeRate.rate),
-              outstandingBalance: parseFloat(data.loan.outStandingBalance) * parseFloat(data.loan.exchangeRate.rate)
-            }
-          }
-        })
-      }
+      await dynamoDb.update(mtcount).promise()
     }
+    // end count
     for (let i = 0; i < lines.length; i += 25) {
       const upperLimit = Math.min(i + 25, lines.length)
       const newItems = lines.slice(i, upperLimit)
@@ -390,412 +447,70 @@ module.exports.receipt = async (event) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*' // to allow cross origin access
       },
-      body: json.responseBody(code.httpStatus.Created, R, message.msg.ItemCreatedSuccessed, '', 1)
+      body: json.responseBody(code.httpStatus.Created, Recon, message.msg.ItemCreatedSuccessed, '', 1)
     }
   } catch (e) {
     console.log('error ', e)
   }
 }
-module.exports.loanpayment = async (event) => {
-  try {
-    const timestamp = new Date().toJSON()
-    const data = JSON.parse(event.body)
-    const table = process.env.item_table
-    const instituteId = event.pathParameters.institute_id
-    const sk = instituteId
-    let head
-    const lines = []
-    if (data.id === undefined || data.id === '') {
-      head = 'fin-loanpay-' + uuid.v1()
-    } else {
-      head = data.id
-    }
-    const pk = head
-    const Loan = {
-      sk: sk,
-      pk: pk,
-      id: pk,
-      issuedDate: data.issuedDate,
-      cashAccount: data.cashAccount,
-      penaltyAccount: data.penaltyAccount,
-      number: data.number,
-      journal: data.journal,
-      journalId: data.journalId,
-      loan: data.loan,
-      user: data.user,
-      exchangeRate: data.exchangeRate,
-      schedules: data.schedules,
-      penaltyAmount: data.penaltyAmount,
-      receiptAmount: data.receiptAmount,
-      interestAmount: data.interestAmount,
-      principalAmount: data.principalAmount,
-      lastNumber: data.lastNumber,
-      createdAt: timestamp,
-      updatedAt: timestamp
-    }
-    lines.push({
-      PutRequest: {
-        Item: {
-          sk: sk,
-          pk: pk,
-          issuedDate: data.issuedDate,
-          cashAccount: data.cashAccount,
-          penaltyAccount: data.penaltyAccount,
-          number: data.number,
-          journal: data.journal,
-          journalId: data.journalId,
-          loan: data.loan,
-          user: data.user,
-          exchangeRate: data.exchangeRate,
-          schedules: data.schedules,
-          penaltyAmount: data.penaltyAmount,
-          receiptAmount: data.receiptAmount,
-          interestAmount: data.interestAmount,
-          principalAmount: data.principalAmount,
-          lastNumber: data.lastNumber,
-          createdAt: timestamp,
-          updatedAt: timestamp
-        }
-      }
-    })
-    // update loan
-    if (Object.prototype.hasOwnProperty.call(data.loan, 'id')) {
-      // console.log(data.loan, sk, 'data')
-      const lparam = {
-        TableName: table,
-        Key: {
-          pk: data.loan.id,
-          sk: sk + '-fin-loan'
-        },
-        ExpressionAttributeValues: {
-          ':outStandingBalance': parseFloat(data.principalAmount)
-        },
-        ExpressionAttributeNames: {
-          '#outStandingBalance': 'outStandingBalance'
-        },
-        UpdateExpression: 'set #outStandingBalance = #outStandingBalance - :outStandingBalance',
-        ReturnValues: 'UPDATED_NEW'
-      }
-      await dynamoDb.update(lparam).promise()
-      // balance
-      const myFunc = require('../functions/functions')
-      await myFunc.addBalanceDaily(parseFloat(data.principalAmount) * parseFloat(data.exchangeRate.rate), 'fin-loan-repayment-bal-', instituteId, data.issuedDate, 'loanRepaymentReport', '', '')
-    }
-    // update schedule
-    for (const sche of data.schedules) {
-      const t = {
-        TableName: table,
-        Key: {
-          pk: sche.id,
-          sk: event.pathParameters.institute_id
-        },
-        ExpressionAttributeValues: {
-          ':status': 2,
-          ':receiptId': pk
-        },
-        ExpressionAttributeNames: {
-          '#status': 'status',
-          '#receiptId': 'receiptId'
-        },
-        UpdateExpression: 'set #status = :status, #receiptId = :receiptId',
-        ReturnValues: 'UPDATED_NEW'
-      }
-      await dynamoDb.update(t).promise()
-      // console.log(data.schedules, 'schedule')
-    }
-    // update balance
-    const bpara = {
-      ExpressionAttributeValues: {
-        ':sk': event.pathParameters.institute_id,
-        ':pk': 'fin-balance-'
-      },
-      Limit: 1,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
-      TableName: table
-    }
-    const loanBal = await dynamoDb.query(bpara).promise()
-    if (loanBal.Items.length > 0) {
-      const tparams = {
-        TableName: table,
-        Key: {
-          pk: loanBal.Items[0].pk,
-          sk: instituteId
-        },
-        ExpressionAttributeValues: {
-          ':outstandingBalance': parseFloat(data.principalAmount) * parseFloat(data.exchangeRate.rate)
-        },
-        ExpressionAttributeNames: {
-          '#outstandingBalance': 'outstandingBalance'
-        },
-        UpdateExpression: 'set #outstandingBalance = #outstandingBalance - :outstandingBalance',
-        ReturnValues: 'UPDATED_NEW'
-      }
-      await dynamoDb.update(tparams).promise()
-      // console.log(loanBal, 'loan balance')
-    }
-    // add transaction
-    lines.push({
-      PutRequest: {
-        Item: {
-          sk: data.loan.id,
-          pk: 'fin-txn-' + uuid.v1(),
-          loan: data.loan,
-          issuedDate: data.issuedDate,
-          number: data.number,
-          amount: parseFloat(data.receiptAmount),
-          user: data.user,
-          exchangeRate: data.exchangeRate,
-          type: 'loan payment',
-          createdAt: timestamp,
-          updatedAt: timestamp
-        }
-      }
-    })
-    for (let i = 0; i < lines.length; i += 25) {
-      const upperLimit = Math.min(i + 25, lines.length)
-      const newItems = lines.slice(i, upperLimit)
-      try {
-        await dynamoDb
-          .batchWrite({
-            RequestItems: {
-              [table]: newItems
-            }
-          })
-          .promise()
-      } catch (e) {
-        console.log('arr ', JSON.stringify(e), JSON.stringify(newItems))
-        console.error('There was an error while processing the request')
-        break
-      }
-    }
-    // response back
-    return {
-      statusCode: code.httpStatus.Created,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*' // to allow cross origin access
-      },
-      body: json.responseBody(code.httpStatus.Created, Loan, message.msg.ItemCreatedSuccessed, '', 1)
-    }
-  } catch (e) {
-    console.log('error ', e)
+module.exports.txnreport = async (event) => {
+  const table = process.env.item_table
+  const instituteId = event.pathParameters.institute_id
+  const data = JSON.parse(event.body)
+  const params = {
+    ExpressionAttributeValues: {
+      ':sk': instituteId,
+      ':startDate': data.startDate,
+      ':endDate': data.endDate
+    },
+    IndexName: 'GSI1SK',
+    KeyConditionExpression: 'sk = :sk And gsisk BETWEEN :startDate AND :endDate',
+    TableName: table
   }
-}
-module.exports.closeloan = async (event) => {
   try {
-    const timestamp = new Date().toJSON()
-    const data = JSON.parse(event.body)
-    const myFunc = require('../functions/functions')
-    const table = process.env.item_table
-    const instituteId = event.pathParameters.institute_id
-    let head
-    const lines = []
-    if (data.id === undefined || data.id === '') {
-      head = 'fin-closeloan-' + uuid.v1()
-    } else {
-      head = data.id
-    }
-    const pk = head
-    const Loan = {
-      sk: instituteId,
-      pk: pk,
-      issuedDate: data.issuedDate,
-      number: data.number,
-      loan: data.loan,
-      lastNumber: data.lastNumber,
-      abbr: data.abbr,
-      exchangeRate: data.exchangeRate,
-      rate: data.rate,
-      note: data.note,
-      penalty: data.penalty,
-      referenceNumber: data.referenceNumber,
-      journalId: data.journalId,
-      schedules: data.schedules,
-      user: data.user,
-      totalAmount: data.totalAmount,
-      interest: data.interest,
-      principal: data.principal,
-      penaltyAccount: data.penaltyAccount,
-      cashAccount: data.cashAccount,
-      createdAt: timestamp,
-      updatedAt: timestamp
-    }
-    lines.push({
-      PutRequest: {
-        Item: {
-          sk: instituteId,
-          pk: pk,
-          issuedDate: data.issuedDate,
-          number: data.number,
-          loan: data.loan,
-          lastNumber: data.lastNumber,
-          abbr: data.abbr,
-          exchangeRate: data.exchangeRate,
-          rate: data.rate,
-          note: data.note,
-          penalty: data.penalty,
-          referenceNumber: data.referenceNumber,
-          journalId: data.journalId,
-          schedules: data.schedules,
-          user: data.user,
-          totalAmount: data.totalAmount,
-          interest: data.interest,
-          principal: data.principal,
-          penaltyAccount: data.penaltyAccount,
-          cashAccount: data.cashAccount,
-          createdAt: timestamp,
-          updatedAt: timestamp
-        }
-      }
-    })
-    // add transaction
-    lines.push({
-      PutRequest: {
-        Item: {
-          sk: data.loan.id,
-          pk: 'fin-txn-' + uuid.v1(),
-          loan: data.loan,
-          issuedDate: data.issuedDate,
-          number: data.number,
-          amount: parseFloat(data.totalAmount),
-          user: data.user,
-          exchangeRate: data.exchangeRate,
-          type: 'close loan',
-          createdAt: timestamp,
-          updatedAt: timestamp
-        }
-      }
-    })
-    // let totalPaid = 0
-    let prinPaid = 0
-    // let intPaid = 0
-    // let reportType = 'customer'
-    // if (data.member.id.indexOf('ac-mem-') >= 0) {
-    //   reportType = 'member'
-    // }
-    if (Object.prototype.hasOwnProperty.call(data.loan, 'id')) {
-      lines.push({
-        PutRequest: {
-          Item: {
-            sk: data.loan.id,
-            pk: pk,
-            number: data.loan.number,
-            loanData: Loan,
-            amount: data.totalAmount,
-            deleted: 0,
-            createdAt: timestamp,
-            updatedAt: timestamp
-          }
-        }
+    const d = await dynamoDb.query(params).promise()
+    const results = []
+    for (const data of d.Items) {
+      results.push({
+        id: data.pk,
+        number: data.number,
+        lastNumber: data.lastNumber,
+        issuedDate: data.issuedDate,
+        endingBalanceDate: data.endingBalanceDate,
+        actualAmount: data.actualAmount,
+        endingBalance: data.endingBalance,
+        varianceAmount: data.varianceAmount,
+        account: data.account,
+        adjustmentAccount: data.adjustmentAccount,
+        session: data.session,
+        user: data.user,
+        type: data.type,
+        reconcileEntries: data.reconcileEntries,
+        is_draft: data.is_draft,
+        created_by: data.created_by,
+        modified_by: data.modified_by,
+        journalId: data.journalId
       })
-      // update schedule
-      if (data.schedules.length > 0) {
-        for (const sche of data.schedules) {
-          // totalPaid += parseFloat(sche.data.total)
-          prinPaid += parseFloat(sche.data.principal)
-          // intPaid += parseFloat(sche.data.interest)
-          // update schedule
-          const t = {
-            TableName: table,
-            Key: {
-              pk: sche.id,
-              sk: event.pathParameters.institute_id
-            },
-            ExpressionAttributeValues: {
-              ':status': 2,
-              ':receiptId': pk
-            },
-            ExpressionAttributeNames: {
-              '#status': 'status',
-              '#receiptId': 'receiptId'
-            },
-            UpdateExpression: 'set #status = :status, #receiptId = :receiptId',
-            ReturnValues: 'UPDATED_NEW'
-          }
-          await dynamoDb.update(t).promise()
-        }
-      }
-      // balance repaid
-      await myFunc.addBalanceDaily(parseFloat(prinPaid) * parseFloat(data.exchangeRate.rate), 'fin-loan-repayment-bal-', instituteId, data.issuedDate, 'loanRepaymentReport', '', '')
-      // update loan
-      const lparam = {
-        TableName: table,
-        Key: {
-          pk: data.loan.id,
-          sk: instituteId + '-fin-loan'
-        },
-        ExpressionAttributeValues: {
-          ':outStandingBalance': parseFloat(prinPaid) * parseFloat(data.exchangeRate.rate),
-          ':status': 'close'
-        },
-        ExpressionAttributeNames: {
-          '#outStandingBalance': 'outStandingBalance',
-          '#status': 'status'
-        },
-        UpdateExpression: 'set #outStandingBalance = #outStandingBalance - :outStandingBalance, #status = :status',
-        ReturnValues: 'UPDATED_NEW'
-      }
-      await dynamoDb.update(lparam).promise()
     }
-    // update balance
-    const bpara = {
-      ExpressionAttributeValues: {
-        ':sk': event.pathParameters.institute_id,
-        ':pk': 'fin-balance-'
+    results.sort(function (a, b) {
+      return parseInt(b.lastNumber) - parseInt(a.lastNumber)
+    })
+    return {
+      statusCode: code.httpStatus.OK,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // to allow cross origin access
       },
-      Limit: 1,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'sk = :sk and begins_with(pk, :pk)',
-      TableName: table
+      body: json.responseBody(code.httpStatus.OK, results, message.msg.FetchSuccessed, '', 1)
     }
-    const loanBal = await dynamoDb.query(bpara).promise()
-    if (loanBal.Items.length > 0) {
-      const tparams = {
-        TableName: table,
-        Key: {
-          pk: loanBal.Items[0].pk,
-          sk: instituteId
-        },
-        ExpressionAttributeValues: {
-          ':outstandingBalance': parseFloat(prinPaid) * parseFloat(data.exchangeRate.rate)
-        },
-        ExpressionAttributeNames: {
-          '#outstandingBalance': 'outstandingBalance'
-        },
-        UpdateExpression: 'set #outstandingBalance = #outstandingBalance - :outstandingBalance',
-        ReturnValues: 'UPDATED_NEW'
-      }
-      await dynamoDb.update(tparams).promise()
-      // console.log(loanBal, 'loan balance')
-    }
-    for (let i = 0; i < lines.length; i += 25) {
-      const upperLimit = Math.min(i + 25, lines.length)
-      const newItems = lines.slice(i, upperLimit)
-      try {
-        await dynamoDb
-          .batchWrite({
-            RequestItems: {
-              [table]: newItems
-            }
-          })
-          .promise()
-      } catch (e) {
-        console.log('arr ', JSON.stringify(e), JSON.stringify(newItems))
-        console.error('There was an error while processing the request')
-        break
-      }
-    }
-    // response back
+  } catch (error) {
     return {
       statusCode: code.httpStatus.Created,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*' // to allow cross origin access
       },
-      body: json.responseBody(code.httpStatus.Created, Loan, message.msg.ItemCreatedSuccessed, '', 1)
+      body: json.responseBody(code.httpStatus.BadRequest, [], message.msg.FetchFailed, error, 0)
     }
-  } catch (e) {
-    console.log('error ', JSON.stringify(e))
   }
 }
